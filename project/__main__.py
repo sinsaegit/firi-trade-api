@@ -5,7 +5,6 @@ import hmac
 import time
 import json
 import hashlib
-import base64
 import logging, logging.config
 from dotenv import load_dotenv
 from constants import BROKERAGE
@@ -30,7 +29,7 @@ class Firi():
         if not all([self._api_key, self._secret_key, self._client_id]):
             raise ValueError("API_KEY, SECRET_KEY, and CLIENT_ID must be set.")
 
-    def create_hmac(data: str, key:str):
+    def create_hmac(data: str, key:str) -> str:
         """
     Create an HMAC signature using HmacSHA256.
     Args:
@@ -46,20 +45,29 @@ class Firi():
         return hmac_instance.hexdigest()
 
 
-    def signature(self, endpoint):
+    def create_signature(self, endpoint: str, validity: int = 2000, extra_data: dict = None) -> dict:
         """Generate HMAC authentication header."""
         timestamp = int(time.time())
-        validity_period = 2000
 
-        message = json.dumps({"timestamp":timestamp, "validity":validity_period})
-        signature = self.create_hmac(message, self._secret_key)
-        return signature
+        msg_body = json.dumps({"timestamp":timestamp, "validity":validity})
+        if extra_data:
+            msg_body.update(extra_data)
+
+        signature = self.create_hmac(json.dumps(msg_body), self._secret_key)
+
+        return {
+            "firi-access-key":self._api_key,
+            "firi-user-signature":signature,
+            "firi-user-clientid":self._client_id
+        }, {"timestamp":timestamp, "validity":""}
 
 
-    def template_func(self, endpoint, authenticated=False):
+    def template_func(self, endpoint: str, authenticated: bool = False, method: str = "GET", data: dict = None) -> dict:
         """Generic method to make API requests."""
         url = self._api_url+endpoint
-        headers = {"Authorization":f"Bearer {self._api_key}"}
+        if authenticated:
+            headers, query_params = self.create_signature(endpoint, extra_data=data)
+            #headers = {"Authorization":f"Bearer {self._api_key}"}
 
         try: 
             response = requests.get(url, headers=headers)
@@ -95,5 +103,6 @@ class Firi():
 
 if __name__ == "__main__":
     firi = Firi()
-    firi.get_time()
+    print(firi.get_time())
+    print(firi.get_time.__name__)
   
