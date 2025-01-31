@@ -171,5 +171,5 @@ cython_debug/
 .pypirc
 
 project/constants.py
-project/.env.test
+project/.env
 .env*
