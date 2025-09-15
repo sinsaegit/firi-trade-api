@@ -26,18 +26,22 @@ jobs:
     - name: Test API connection (unauthenticated)
       run: |
         cd project
+        export API_KEY=dummy
+        export SECRET_KEY=dummy
+        export CLIENT_ID=dummy
         python -c "
-from __main__ import Firi
+import sys
 import os
+import importlib.util
 
-# Test that the app can start without secrets for unauthenticated calls
-# This verifies the basic structure works
+# Import the module directly
+spec = importlib.util.spec_from_file_location('firi_main', '__main__.py')
+firi_main = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(firi_main)
+
+Firi = firi_main.Firi
+
 try:
-    # Set dummy values to avoid ValueError in __init__
-    os.environ['API_KEY'] = 'dummy'
-    os.environ['SECRET_KEY'] = 'dummy' 
-    os.environ['CLIENT_ID'] = 'dummy'
-    
     firi = Firi()
     # Test unauthenticated endpoint
     result = firi.get_time()
@@ -56,8 +60,16 @@ except Exception as e:
       run: |
         cd project
         python -c "
+import sys
 import os
-from __main__ import Firi
+import importlib.util
+
+# Import the module directly
+spec = importlib.util.spec_from_file_location('firi_main', '__main__.py')
+firi_main = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(firi_main)
+
+Firi = firi_main.Firi
 
 # Only test authenticated endpoints if secrets are available
 if all([os.getenv('API_KEY'), os.getenv('SECRET_KEY'), os.getenv('CLIENT_ID')]):
