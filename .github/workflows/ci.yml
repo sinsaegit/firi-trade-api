@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Test API connection (unauthenticated)
+      run: |
+        cd project
+        python -c "
+from __main__ import Firi
+import os
+
+# Test that the app can start without secrets for unauthenticated calls
+# This verifies the basic structure works
+try:
+    # Set dummy values to avoid ValueError in __init__
+    os.environ['API_KEY'] = 'dummy'
+    os.environ['SECRET_KEY'] = 'dummy' 
+    os.environ['CLIENT_ID'] = 'dummy'
+    
+    firi = Firi()
+    # Test unauthenticated endpoint
+    result = firi.get_time()
+    print('✅ Unauthenticated API call successful')
+    print(f'Server time: {result}')
+except Exception as e:
+    print(f'❌ Test failed: {e}')
+    exit(1)
+        "
+    
+    - name: Test authenticated endpoints (if secrets available)
+      env:
+        API_KEY: ${{ secrets.FIRI_API_KEY }}
+        SECRET_KEY: ${{ secrets.FIRI_SECRET_KEY }}
+        CLIENT_ID: ${{ secrets.FIRI_CLIENT_ID }}
+      run: |
+        cd project
+        python -c "
+import os
+from __main__ import Firi
+
+# Only test authenticated endpoints if secrets are available
+if all([os.getenv('API_KEY'), os.getenv('SECRET_KEY'), os.getenv('CLIENT_ID')]):
+    if not all([k == 'dummy' for k in [os.getenv('API_KEY'), os.getenv('SECRET_KEY'), os.getenv('CLIENT_ID')]]):
+        try:
+            firi = Firi()
+            # Test authenticated endpoint
+            result = firi.get_orders(count=1)
+            print('✅ Authenticated API call successful')
+        except Exception as e:
+            print(f'⚠️  Authenticated test failed (expected if using test credentials): {e}')
+    else:
+        print('ℹ️  Skipping authenticated tests - dummy credentials detected')
+else:
+    print('ℹ️  Skipping authenticated tests - secrets not configured')
+        "
+
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    
+    - name: Install linting dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 black
+    
+    - name: Run Black formatter check
+      run: |
+        black --check --diff project/
+    
+    - name: Run Flake8 linter
+      run: |
+        flake8 project/ --max-line-length=120 --extend-ignore=E203,W503

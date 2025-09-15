@@ -170,6 +170,9 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-project/constants.py
+# Environment variables and secrets
 project/.env
 .env*
+
+# Test and temporary files  
+test_env_setup.py
